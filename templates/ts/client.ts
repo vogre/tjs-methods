@@ -1,6 +1,6 @@
 // tslint:disable
 import * as request from 'request-promise-native';
-import { fromPairs } from 'lodash';
+import { fromPairs, noop } from 'lodash';
 import { coerceWithSchema } from './common';
 import {
   schema,
@@ -24,22 +24,29 @@ export class {{name}}Client {
 
   protected readonly schemas: { [method: string]: any };
 
-  public constructor(protected readonly serverUrl: string, protected readonly connectTimeout: number = 3.0) {
+
+  public constructor(
+    protected readonly serverUrl: string,
+    protected readonly connectTimeout: number = 3.0,
+    private readonly contextApply: (ctx: any, requestOptions: any) => void = noop
+  ) {
     this.schemas = fromPairs({{name}}Client.methods.map((m) =>
       [m, schema.definitions.{{name}}.properties[m].properties.returns, schema]));
   }
   {{#methods}}
 
-  public async {{name}}({{#parameters}}{{name}}: {{type}}{{^last}}, {{/last}}{{/parameters}}): Promise<{{returnType}}> {
+  public async {{name}}(ctx: any{{#parameters.length}}, {{/parameters.length}}{{#parameters}}{{name}}: {{type}}{{^last}}, {{/last}}{{/parameters}}): Promise<{{returnType}}> {
     try {
-      const ret = await request.post(`${this.serverUrl}/{{name}}`, {
+      const requestOptions = {
         json: true,
         body: {
           {{#parameters}}
           {{name}},
           {{/parameters}}
         }
-      });
+      };
+      this.contextApply(ctx, requestOptions);
+      const ret = await request.post(`${this.serverUrl}/{{name}}`, requestOptions);
       return coerceWithSchema(this.schemas.{{name}}, ret, schema) as {{returnType}};
     } catch (err) {
       if (err.statusCode === 500 && err.response.body) {

@@ -124,7 +124,7 @@ export default class Handler {
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
- expect(await client.bar(3)).to.equal('3');
+ expect(await client.bar(null, 3)).to.equal('3');
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -150,7 +150,7 @@ export default class Handler {
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
- expect(await client.bar('heh')).to.be.undefined;
+ expect(await client.bar(null, 'heh')).to.be.undefined;
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -176,7 +176,7 @@ export default class Handler {
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
- expect(await client.bar()).to.be.eql('heh');
+ expect(await client.bar(null)).to.be.eql('heh');
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -209,7 +209,7 @@ export default class Handler {
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
- expect(await client.authenticate('token')).to.eql({ name: 'Vova' });
+ expect(await client.authenticate(null, 'token')).to.eql({ name: 'Vova' });
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -237,7 +237,7 @@ import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
  const d = new Date();
- expect(await client.dateIncrement(d)).to.eql(new Date(d.getTime() + 1));
+ expect(await client.dateIncrement(null, d)).to.eql(new Date(d.getTime() + 1));
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -273,8 +273,8 @@ import { RuntimeError, InternalServerError } from './interfaces';
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
-  await expect(client.raise('RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
-  await expect(client.raise('UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
+  await expect(client.raise(null, 'RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
+  await expect(client.raise(null, 'UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -314,9 +314,9 @@ import { RuntimeError, WalktimeError, InternalServerError } from './interfaces';
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
-  await expect(client.raise('RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
-  await expect(client.raise('WalktimeError')).to.eventually.be.rejectedWith(WalktimeError, 'hoh');
-  await expect(client.raise('UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
+  await expect(client.raise(null, 'RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
+  await expect(client.raise(null, 'WalktimeError')).to.eventually.be.rejectedWith(WalktimeError, 'hoh');
+  await expect(client.raise(null, 'UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
 }
 `;
     await new TestCase(schema, handler, test).run();
@@ -354,7 +354,7 @@ export default class Handler {
 import { TestClient } from './client';
 
 export default async function test(client: TestClient) {
-  const result = await client.hello('vova');
+  const result = await client.hello(null, 'vova');
   expect(result).to.equal('Hello, vova from test');
 }
 `;
