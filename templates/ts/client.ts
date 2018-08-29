@@ -42,8 +42,8 @@ export class {{name}}Client {
       });
       return coerceWithSchema(this.schemas.{{name}}, ret, schema) as {{returnType}};
     } catch (err) {
-      const body = err.response.body;
-      if (err.statusCode === 500) {
+      if (err.statusCode === 500 && err.response.body) {
+        const body = err.response.body;
         {{#throws}}
         if (body.name === '{{.}}') {
           throw new {{.}}(body.message);
