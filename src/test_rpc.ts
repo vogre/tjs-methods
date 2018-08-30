@@ -47,7 +47,7 @@ async function main() {
   const listener = await server.listen(0, '127.0.0.1');
   const { address, port } = (listener.address() as AddressInfo);
   const client = new TestClient('http://' + address + ':' + port);
-  await test(client);
+  await test(client, server, port);
   process.exit(0);
 }
 
@@ -122,8 +122,9 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
  expect(await client.bar(3)).to.equal('3');
 }
 `;
@@ -148,8 +149,9 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
  expect(await client.bar('heh')).to.be.undefined;
 }
 `;
@@ -174,8 +176,9 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
  expect(await client.bar()).to.be.eql('heh');
 }
 `;
@@ -207,8 +210,9 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
  expect(await client.authenticate('token')).to.eql({ name: 'Vova' });
 }
 `;
@@ -234,8 +238,9 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
  const d = new Date();
  expect(await client.dateIncrement(d)).to.eql(new Date(d.getTime() + 1));
 }
@@ -271,8 +276,9 @@ export default class Handler {
     const test = `
 import { RuntimeError, InternalServerError } from './interfaces';
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
   await expect(client.raise('RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
   await expect(client.raise('UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
 }
@@ -312,8 +318,9 @@ export default class Handler {
     const test = `
 import { RuntimeError, WalktimeError, InternalServerError } from './interfaces';
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
   await expect(client.raise('RuntimeError')).to.eventually.be.rejectedWith(RuntimeError, 'heh');
   await expect(client.raise('WalktimeError')).to.eventually.be.rejectedWith(WalktimeError, 'hoh');
   await expect(client.raise('UnknownError')).to.eventually.be.rejectedWith(InternalServerError);
@@ -352,12 +359,100 @@ export default class Handler {
 `;
     const test = `
 import { TestClient } from './client';
+import { TestServer } from './server';
 
-export default async function test(client: TestClient) {
+export default async function test(client: TestClient, server: TestServer, port: number) {
   const result = await client.hello('vova');
   expect(result).to.equal('Hello, vova from test');
 }
 `;
     await new TestCase(schema, handler, test).run();
+  });
+  const defaultSchema = `
+export interface Test {
+  bar: {
+    params: {
+      a: string;
+    };
+    returns: string;
+  };
+}`;
+  const defaultHandler = `
+import * as koa from 'koa';
+
+export default class Handler {
+  public async bar(a: string): Promise<string> {
+    return 'Hello, ' + a;
+  }
+}
+`;
+  it('forwards network errors', async () => {
+    const test = `
+import { TestClient } from './client';
+import { TestServer } from './server';
+
+export default async function test(client: TestClient, server: TestServer, port: number) {
+  server.close();
+  try { await client.bar('heh'); }
+  catch(err) {
+    expect(err.message).to.match(/^Error: connect ECONNREFUSED/);
+    return;
+  }
+  expect(1).to.equal(2);
+}
+`;
+    await new TestCase(defaultSchema, defaultHandler, test).run();
+  });
+  it('handles empty 500 responses', async () => {
+    const test = `
+import { TestClient } from './client';
+import { TestServer } from './server';
+import * as http from 'http';
+
+export default async function test(client: TestClient, server: TestServer, port: number) {
+  server.close();
+  await new Promise((resolve, reject) => {
+    const fakeServer = http.createServer((req, res) => {
+      res.statusCode = 500;
+      res.statusMessage = 'sorry';
+      res.end();
+    }).listen(port, resolve);
+    fakeServer.once('error', reject);
+  });
+  try { await client.bar('heh'); }
+  catch(err) {
+    expect(err.message).to.equal('500 - undefined');
+    return;
+  }
+  expect(1).to.equal(2);
+}
+`;
+    await new TestCase(defaultSchema, defaultHandler, test).run();
+  });
+  it('handles non-json 500 responses', async () => {
+    const test = `
+import { TestClient } from './client';
+import { TestServer } from './server';
+import * as http from 'http';
+
+export default async function test(client: TestClient, server: TestServer, port: number) {
+  server.close();
+  await new Promise((resolve, reject) => {
+    const fakeServer = http.createServer((req, res) => {
+      res.statusCode = 500;
+      res.statusMessage = 'Internal Server Error';
+      res.end('Internal Server Error');
+    }).listen(port, resolve);
+    fakeServer.once('error', reject);
+  });
+  try { await client.bar('heh'); }
+  catch(err) {
+    expect(err.message).to.equal('500 - "Internal Server Error"');
+    return;
+  }
+  expect(1).to.equal(2);
+}
+`;
+    await new TestCase(defaultSchema, defaultHandler, test).run();
   });
 });

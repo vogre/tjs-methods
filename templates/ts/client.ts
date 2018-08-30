@@ -42,7 +42,7 @@ export class {{name}}Client {
       });
       return coerceWithSchema(this.schemas.{{name}}, ret, schema) as {{returnType}};
     } catch (err) {
-      if (err.statusCode === 500 && err.response.body) {
+      if (err.statusCode === 500 && typeof err.response.body === 'object') {
         const body = err.response.body;
         {{#throws}}
         if (body.name === '{{.}}') {
