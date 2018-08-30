@@ -100,6 +100,7 @@ export class {{name}}Router {
 export class {{name}}Server {
   protected readonly app: Koa;
   protected readonly router: {{name}}Router;
+  private server: http.Server;
 
   public constructor(
     protected readonly handler: {{name}}Handler,
@@ -114,9 +115,13 @@ export class {{name}}Server {
 
   public listen(port: number, host: string = 'localhost'): Promise<http.Server> {
     return new Promise((resolve, reject) => {
-      const server = http.createServer(this.app.callback()).listen(port, host, () => resolve(server));
-      server.once('error', reject);
+      this.server = http.createServer(this.app.callback()).listen(port, host, () => resolve(this.server));
+      this.server.once('error', reject);
     });
+  }
+
+  public close() {
+    this.server.close();
   }
 }
 {{/attributes}}
